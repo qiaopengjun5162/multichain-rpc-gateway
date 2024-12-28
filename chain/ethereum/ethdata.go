@@ -26,7 +26,7 @@ type EthData struct {
 // - A pointer to an EthData instance, which encapsulates the EthereumScan client.
 // - An error if the EthereumScan client cannot be created.
 func NewEthDataClient(baseUrl, apiKey string, timeout time.Duration) (*EthData, error) {
-	ethereumScanCli, err := etherscan.NewChainExplorerAdaptor(apiKey, baseUrl, false, time.Duration(timeout))
+	ethereumScanCli, err := etherscan.NewChainExplorerAdaptor(apiKey, baseUrl, false, timeout)
 	if err != nil {
 		log.Error("New ethereumScan client fail", "err", err)
 		return nil, err
@@ -80,7 +80,7 @@ func (ed *EthData) GetBalanceByAddress(contractAddr, address string) (*account.A
 	limit := []string{"10"}
 	accountBalanceReq := &account.AccountBalanceRequest{
 		ChainShortName:  "ETH",
-		ExplorerName:    "etherescan",
+		ExplorerName:    "ethereumScan",
 		Account:         accountItem,
 		Symbol:          symbol,
 		ContractAddress: contractAddress,
