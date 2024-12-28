@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ethereum/go-ethereum"
+	ethereum "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -63,7 +63,7 @@ func NewChainAdaptor(conf *config.Config) (chain.IChainAdaptor, error) {
 	}, nil
 }
 
-func (c *ChainAdaptor) GetSupportChains(req *account.SupportChainsRequest) (*account.SupportChainsResponse, error) {
+func (c *ChainAdaptor) GetSupportChains(_ *account.SupportChainsRequest) (*account.SupportChainsResponse, error) {
 	return &account.SupportChainsResponse{
 		Code:    common2.ReturnCode_SUCCESS,
 		Msg:     "Support this chain",
@@ -123,6 +123,18 @@ func (c *ChainAdaptor) ValidAddress(req *account.ValidAddressRequest) (*account.
 	}
 }
 
+// GetBlockHeaderByNumber retrieves the Ethereum block header for a specified block number or the latest block if no number is provided.
+//
+// Parameters:
+// - req: A pointer to a BlockHeaderNumberRequest struct. If req.Height is 0, it retrieves the latest block header; otherwise, it retrieves the block header for the specified block number.
+//
+// Returns:
+// - A pointer to a BlockHeaderResponse struct containing the block header information.
+//   - Code: A ReturnCode indicating the success or failure of the operation.
+//   - Msg: A string describing the result of the operation.
+//   - BlockHeader: A BlockHeader struct with details of the block such as Hash, ParentHash, Coinbase, etc.
+//
+// - An error if the retrieval fails.
 func (c *ChainAdaptor) GetBlockHeaderByNumber(req *account.BlockHeaderNumberRequest) (*account.BlockHeaderResponse, error) {
 	var blockNumber *big.Int
 	if req.Height == 0 {
@@ -168,6 +180,19 @@ func (c *ChainAdaptor) GetBlockHeaderByNumber(req *account.BlockHeaderNumberRequ
 	}, nil
 }
 
+// GetBlockHeaderByHash returns the block header for the given hash.
+//
+// Parameters:
+// - req: A pointer to an account.BlockHeaderHashRequest containing the hash of the block.
+//
+// Returns:
+// - A pointer to an account.BlockHeaderResponse containing the block header.
+// - An error if the retrieval fails.
+//
+// The function uses the Ethereum client to retrieve the block header by hash.
+// If the call fails, it logs the error and returns an error response.
+// If the call succeeds but the header is nil, it logs a warning and returns an error response.
+// Otherwise, it returns the header and nil.
 func (c *ChainAdaptor) GetBlockHeaderByHash(req *account.BlockHeaderHashRequest) (*account.BlockHeaderResponse, error) {
 	blockInfo, err := c.ethClient.BlockHeaderByHash(common.HexToHash(req.Hash))
 	if err != nil {
@@ -293,22 +318,22 @@ func (c *ChainAdaptor) GetBlockByHash(req *account.BlockHashRequest) (*account.B
 	}, nil
 }
 
-// GetAccount gets the account information for a given address.
+// GetAccount gets the account information for the given address.
 //
 // Parameters:
-// - req: A pointer to an AccountRequest struct containing the address to be queried.
+// - req: A pointer to a AccountRequest struct containing the address to be queried.
 //
 // Return:
-// - A pointer to an AccountResponse struct containing the queried account information.
+// - A pointer to a AccountResponse struct containing the queried account information.
 //   - Code: A ReturnCode indicating the success or failure of the operation.
 //   - Msg: A string describing the result of the operation.
-//   - AccountNumber: The account number of the queried address. Currently always "0".
-//   - Sequence: The sequence number of the queried address.
-//   - Balance: The balance of the queried address.
+//   - AccountNumber: The account number of the queried account.
+//   - Sequence: The sequence number of the queried account.
+//   - Balance: The balance of the queried account.
 func (c *ChainAdaptor) GetAccount(req *account.AccountRequest) (*account.AccountResponse, error) {
 	nonceResult, err := c.ethClient.TxCountByAddress(common.HexToAddress(req.Address))
 	if err != nil {
-		log.Error("get nonce by address fail", "err", err)
+		log.Error("get nonce by address fail, err=", err)
 		return &account.AccountResponse{
 			Code: common2.ReturnCode_ERROR,
 			Msg:  "get nonce by address fail",
@@ -346,7 +371,7 @@ func (c *ChainAdaptor) GetAccount(req *account.AccountRequest) (*account.Account
 // Returns:
 // - A pointer to a FeeResponse containing the gas price or an error.
 // - An error if the gas price retrieval fails.
-func (c *ChainAdaptor) GetFee(req *account.FeeRequest) (*account.FeeResponse, error) {
+func (c *ChainAdaptor) GetFee(_ *account.FeeRequest) (*account.FeeResponse, error) {
 	gasPrice, err := c.ethClient.SuggestGasPrice()
 	if err != nil {
 		log.Error("get gas price failed", "err", err)
@@ -468,17 +493,19 @@ func (c *ChainAdaptor) GetTxByHash(req *account.TxHashRequest) (*account.TxHashR
 			rawValue, _ := hexutil.DecodeBig("0x" + trimHex)
 			beforeTokenAddress = tx.To().String()
 			beforeValue = decimal.NewFromBigInt(rawValue, 0).BigInt()
+		} else {
+			return nil, err
 		}
 	} else {
 		beforeToAddress = tx.To().String()
 		beforeTokenAddress = common.Address{}.String()
 		beforeValue = tx.Value()
 	}
-	var fromAddrs []*account.Address
-	var toAddrs []*account.Address
+	var fromAdds []*account.Address
+	var toAdds []*account.Address
 	var valueList []*account.Value
-	fromAddrs = append(fromAddrs, &account.Address{Address: ""})
-	toAddrs = append(toAddrs, &account.Address{Address: beforeToAddress})
+	fromAdds = append(fromAdds, &account.Address{Address: ""})
+	toAdds = append(toAdds, &account.Address{Address: beforeToAddress})
 	valueList = append(valueList, &account.Value{Value: beforeValue.String()})
 	var txStatus account.TxStatus
 	if receipt.Status == 1 {
@@ -492,8 +519,8 @@ func (c *ChainAdaptor) GetTxByHash(req *account.TxHashRequest) (*account.TxHashR
 		Tx: &account.TxMessage{
 			Hash:            tx.Hash().Hex(),
 			Index:           uint32(receipt.TransactionIndex),
-			Froms:           fromAddrs,
-			Tos:             toAddrs,
+			Froms:           fromAdds,
+			Tos:             toAdds,
 			Values:          valueList,
 			Fee:             tx.GasFeeCap().String(),
 			Status:          txStatus,
@@ -633,7 +660,7 @@ func (c *ChainAdaptor) BuildSignedTransaction(req *account.SignedTransactionRequ
 	return response, nil
 }
 
-func (c *ChainAdaptor) DecodeTransaction(req *account.DecodeTransactionRequest) (*account.DecodeTransactionResponse, error) {
+func (c *ChainAdaptor) DecodeTransaction(_ *account.DecodeTransactionRequest) (*account.DecodeTransactionResponse, error) {
 	return &account.DecodeTransactionResponse{
 		Code:     common2.ReturnCode_SUCCESS,
 		Msg:      "verify tx success",
@@ -641,7 +668,7 @@ func (c *ChainAdaptor) DecodeTransaction(req *account.DecodeTransactionRequest) 
 	}, nil
 }
 
-func (c *ChainAdaptor) VerifySignedTransaction(req *account.VerifyTransactionRequest) (*account.VerifyTransactionResponse, error) {
+func (c *ChainAdaptor) VerifySignedTransaction(_ *account.VerifyTransactionRequest) (*account.VerifyTransactionResponse, error) {
 	return &account.VerifyTransactionResponse{
 		Code:   common2.ReturnCode_SUCCESS,
 		Msg:    "verify tx success",
@@ -649,7 +676,7 @@ func (c *ChainAdaptor) VerifySignedTransaction(req *account.VerifyTransactionReq
 	}, nil
 }
 
-func (c *ChainAdaptor) GetExtraData(req *account.ExtraDataRequest) (*account.ExtraDataResponse, error) {
+func (c *ChainAdaptor) GetExtraData(_ *account.ExtraDataRequest) (*account.ExtraDataResponse, error) {
 	return &account.ExtraDataResponse{
 		Code:  common2.ReturnCode_SUCCESS,
 		Msg:   "get extra data success",
