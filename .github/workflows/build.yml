@@ -52,9 +52,7 @@ jobs:
 
       # Install golangci-lint
       - name: Install golangci-lint
-        run: |
-          curl -sSfL https://github.com/golangci/golangci-lint/releases/download/v1.51.2/golangci-lint-1.51.2-linux-amd64.tar.gz | tar -xzv -C /tmp
-          sudo mv /tmp/golangci-lint-*/golangci-lint /usr/local/bin/
+        run: go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
 
       # Check Go code formatting
       - name: Check code format
@@ -62,7 +60,7 @@ jobs:
 
       # Lint Go sources
       - name: Lint Go sources
-        run: golangci-lint run --timeout 5m
+        run: golangci-lint run ./...
 
       # Run Go tests
       - name: Run Go tests
